@@ -26,19 +26,7 @@ export const authOptions: NextAuthOptions = {
       }
     })
   ],
-  session: { strategy: "jwt", maxAge: 24 * 60 * 60 }, // 24h JWT validity
-  cookies: {
-    sessionToken: {
-      name: "next-auth.session-token",
-      options: {
-        httpOnly: true,
-        sameSite: "lax" as const,
-        path: "/",
-        secure: process.env.NODE_ENV === "production",
-        // No maxAge → browser session cookie, deleted when browser is closed
-      },
-    },
-  },
+  session: { strategy: "jwt", maxAge: 24 * 60 * 60 }, // 24h JWT validity; cookie has no Max-Age (session cookie) by default
   pages: { signIn: "/login" },
   secret: process.env.NEXTAUTH_SECRET,
   callbacks: {

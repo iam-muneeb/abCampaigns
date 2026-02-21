@@ -1,11 +1,5 @@
 import mongoose from "mongoose";
 
-const MONGODB_URI = process.env.MONGODB_URI!;
-
-if (!MONGODB_URI) {
-  throw new Error("Please define the MONGODB_URI environment variable inside .env.local");
-}
-
 // Global caching to prevent exhausting database connections in Next.js
 let cached = (global as any).mongoose;
 
@@ -18,10 +12,16 @@ export async function connectToDatabase() {
     return cached.conn;
   }
 
+  // Guard lives here (runtime) — NOT at module level (which crashes at build time on Vercel)
+  const MONGODB_URI = process.env.MONGODB_URI;
+  if (!MONGODB_URI) {
+    throw new Error("MONGODB_URI environment variable is not set.");
+  }
+
   if (!cached.promise) {
     const opts = {
       bufferCommands: false,
-      maxPoolSize: 10, // Limits active connections to 10 to save resources
+      maxPoolSize: 10,
     };
 
     cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongoose) => {

@@ -24,18 +24,23 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
 
-    const res = await signIn("credentials", {
-      redirect: false,
-      username,
-      password,
-    });
+    try {
+      const res = await signIn("credentials", {
+        redirect: false,
+        username,
+        password,
+      });
 
-    if (res?.error) {
-      setError("Invalid username or password.");
+      if (res?.error) {
+        setError("Invalid username or password.");
+        setLoading(false);
+      } else {
+        router.push("/");
+        router.refresh();
+      }
+    } catch {
+      setError("Something went wrong. Please try again.");
       setLoading(false);
-    } else {
-      router.push("/");
-      router.refresh();
     }
   };
 
