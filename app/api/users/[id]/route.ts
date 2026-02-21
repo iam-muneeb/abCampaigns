@@ -9,16 +9,17 @@ import bcrypt from "bcryptjs";
 // PATCH /api/users/[id] — update email and/or password (own user only)
 export async function PATCH(
     req: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         const session = await getServerSession(authOptions);
         if (!session) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
         const sessionUserId = (session.user as any).id;
-        if (sessionUserId !== params.id) {
+        if (sessionUserId !== id) {
             return NextResponse.json(
                 { error: "Forbidden: you can only edit your own account." },
                 { status: 403 }
@@ -39,7 +40,7 @@ export async function PATCH(
 
         await connectToDatabase();
         const updated = await User.findByIdAndUpdate(
-            params.id,
+            id,
             { $set: updates },
             { new: true, select: "-password" }
         );
@@ -67,16 +68,17 @@ export async function PATCH(
 // DELETE /api/users/[id] — delete own account only
 export async function DELETE(
     _req: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         const session = await getServerSession(authOptions);
         if (!session) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
         const sessionUserId = (session.user as any).id;
-        if (sessionUserId !== params.id) {
+        if (sessionUserId !== id) {
             return NextResponse.json(
                 { error: "Forbidden: you can only delete your own account." },
                 { status: 403 }
@@ -84,7 +86,7 @@ export async function DELETE(
         }
 
         await connectToDatabase();
-        const deleted = await User.findByIdAndDelete(params.id);
+        const deleted = await User.findByIdAndDelete(id);
 
         if (!deleted) {
             return NextResponse.json({ error: "User not found." }, { status: 404 });
