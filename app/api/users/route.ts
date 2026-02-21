@@ -1,5 +1,6 @@
-// app/api/users/route.ts
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/lib/auth";
 import { connectToDatabase } from "@/app/lib/mongodb";
 import User from "@/app/models/Users";
 import bcrypt from "bcryptjs";
@@ -25,7 +26,7 @@ export async function GET() {
 export async function POST(req: Request) {
     try {
         await connectToDatabase();
-        const { username, email, password } = await req.json();
+        const { username, name, email, password, role } = await req.json();
 
         if (!username || !email || !password) {
             return NextResponse.json(
@@ -34,8 +35,15 @@ export async function POST(req: Request) {
             );
         }
 
+        // Only super_admin can create super_admin accounts
+        const session = await getServerSession(authOptions);
+        const callerRole = (session?.user as any)?.role as string | undefined;
+        const assignedRole = (role === "super_admin" && callerRole === "super_admin")
+            ? "super_admin"
+            : "admin";
+
         const hashedPassword = await bcrypt.hash(password, 12);
-        const newUser = await User.create({ username, email, password: hashedPassword });
+        const newUser = await User.create({ username, name: name || "", email, password: hashedPassword, role: assignedRole });
 
         // Return the new user without the password
         const { password: _pw, ...userWithoutPassword } = newUser.toObject();

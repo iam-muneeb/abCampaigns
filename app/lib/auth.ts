@@ -22,7 +22,7 @@ export const authOptions: NextAuthOptions = {
         const isValid = await bcrypt.compare(credentials.password, user.password);
         if (!isValid) throw new Error("Invalid password");
 
-        return { id: user._id.toString(), name: user.username, email: user.email };
+        return { id: user._id.toString(), name: user.name || user.username, email: user.email, role: user.role };
       }
     })
   ],
@@ -31,11 +31,19 @@ export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   callbacks: {
     async jwt({ token, user }) {
-      if (user) token.id = user.id;
+      if (user) {
+        token.id = user.id;
+        token.name = user.name;   // persist display name in JWT
+        token.role = (user as any).role;  // persist role in JWT
+      }
       return token;
     },
     async session({ session, token }) {
-      if (session.user) (session.user as any).id = token.id as string;
+      if (session.user) {
+        (session.user as any).id = token.id as string;
+        (session.user as any).role = token.role as string;  // expose to client
+        session.user.name = token.name as string; // surface to client
+      }
       return session;
     },
   },
