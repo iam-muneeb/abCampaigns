@@ -1,48 +1,40 @@
 // app/api/auth/forgot-password/route.ts
 import { NextResponse } from "next/server";
 import crypto from "crypto";
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import { connectToDatabase } from "@/app/lib/mongodb";
 import User from "@/app/models/Users";
 
 export async function POST(req: Request) {
-  try {
-    const { email } = await req.json();
-    if (!email) {
-      return NextResponse.json({ error: "Email is required." }, { status: 400 });
-    }
+	try {
+		const { email } = await req.json();
+		if (!email) {
+			return NextResponse.json({ error: "Email is required." }, { status: 400 });
+		}
 
-    await connectToDatabase();
-    const user = await User.findOne({ email });
+		await connectToDatabase();
+		const user = await User.findOne({ email });
 
-    // Always respond generically — don't expose whether email exists
-    if (!user) {
-      return NextResponse.json({ success: true });
-    }
+		// Always respond generically — don't expose whether email exists
+		if (!user) {
+			return NextResponse.json({ success: true });
+		}
 
-    // Generate a secure token valid for 1 hour
-    const token = crypto.randomBytes(32).toString("hex");
-    const expiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+		// Generate a secure token valid for 1 hour
+		const token = crypto.randomBytes(32).toString("hex");
+		const expiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
-    user.resetToken = token;
-    user.resetTokenExpiry = expiry;
-    await user.save();
+		user.resetToken = token;
+		user.resetTokenExpiry = expiry;
+		await user.save();
 
-    const resetUrl = `${process.env.NEXTAUTH_URL}/reset-password?token=${token}`;
+		const resetUrl = `${process.env.NEXTAUTH_URL}/reset-password?token=${token}`;
 
-    // ─── Nodemailer transporter ───────────────────────────────
-    const transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_HOST,
-      port: Number(process.env.EMAIL_PORT),
-      secure: false,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
+		// ─── Resend (HTTP API — works on Vercel) ─────────────────
+		const resend = new Resend(process.env.RESEND_API_KEY);
 
-    // ─── Beautiful HTML Email ────────────────────────────────
-    const html = `
+		// ─── Beautiful HTML Email ────────────────────────────────
+		const html = `
 <!DOCTYPE html>
 <html xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" lang="en">
 
@@ -95,14 +87,8 @@ export async function POST(req: Request) {
 			line-height: 0;
 		}
 
-		.menu_block.desktop_hide .menu-links span {
-			mso-hide: all;
-		}
-
 		@media (max-width:700px) {
-
-			.desktop_hide table.icons-inner,
-			.social_block.desktop_hide .social-table {
+			.desktop_hide table.icons-inner {
 				display: inline-block !important;
 			}
 
@@ -116,33 +102,6 @@ export async function POST(req: Request) {
 
 			.image_block div.fullWidth {
 				max-width: 100% !important;
-			}
-
-			.menu-checkbox[type=checkbox]~.menu-links {
-				display: none !important;
-				padding: 5px 0;
-			}
-
-			.menu-checkbox[type=checkbox]:checked~.menu-trigger .menu-open {
-				display: none !important;
-			}
-
-			.menu-checkbox[type=checkbox]:checked~.menu-links,
-			.menu-checkbox[type=checkbox]~.menu-trigger {
-				display: block !important;
-				max-width: none !important;
-				max-height: none !important;
-				font-size: inherit !important;
-			}
-
-			.menu-checkbox[type=checkbox]~.menu-links>a,
-			.menu-checkbox[type=checkbox]~.menu-links>span.label {
-				display: block !important;
-				text-align: center;
-			}
-
-			.menu-checkbox[type=checkbox]:checked~.menu-trigger .menu-close {
-				display: block !important;
 			}
 
 			.mobile_hide {
@@ -171,15 +130,6 @@ export async function POST(req: Request) {
 				display: table !important;
 				max-height: none !important;
 			}
-		}
-
-		#menu-r5c0m2:checked~.menu-links {
-			background-color: #000000 !important;
-		}
-
-		#menu-r5c0m2:checked~.menu-links a,
-		#menu-r5c0m2:checked~.menu-links span {
-			color: #ffffff !important;
 		}
 	</style><!--[if mso ]><style>sup, sub { font-size: 100% !important; } sup { mso-text-raise:10% } sub { mso-text-raise:-10% }</style> <![endif]-->
 </head>
@@ -217,11 +167,11 @@ export async function POST(req: Request) {
 													<div class="spacer_block block-1" style="height:0px;line-height:0px;font-size:1px;">&#8202;</div>
 												</td>
 												<td class="column column-2" width="33.333333333333336%" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; font-weight: 400; text-align: left; padding-bottom: 5px; padding-top: 5px; vertical-align: top;">
-													<table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace:0pt;mso-table-rspace:0pt;">
+													<table class="image_block block-1" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
 														<tr>
-															<td style="text-align:center;padding:16px 0 8px;">
-																<div style="display:inline-block;background:linear-gradient(135deg,#5f2299,#9c40e0);border-radius:12px;padding:10px 22px;">
-																	<span style="font-size:18px;font-weight:900;color:#ffffff;letter-spacing:-0.5px;font-family:Arial,sans-serif;">AB Campaigns</span>
+															<td class="pad" style="width:100%;padding-right:0px;padding-left:0px;">
+																<div class="alignment" align="center">
+																	<div style="max-width: 57px;"><a href="https://app.attirebulk.org/" target="_blank"><img src="https://i.postimg.cc/9QKHGn5Z/logo.webp" style="display: block; height: auto; border: 0; width: 100%;" width="57" alt="Company Logo" title="Company Logo" height="auto"></a></div>
 																</div>
 															</td>
 														</tr>
@@ -262,10 +212,12 @@ export async function POST(req: Request) {
 										<tbody>
 											<tr>
 												<td class="column column-1" width="100%" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; font-weight: 400; text-align: left; padding-bottom: 5px; padding-top: 5px; vertical-align: top;">
-													<table width="100%" border="0" cellpadding="20" cellspacing="0" role="presentation" style="mso-table-lspace:0pt;mso-table-rspace:0pt;">
+													<table class="image_block block-1" width="100%" border="0" cellpadding="15" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
 														<tr>
-															<td style="text-align:center;padding-top:32px;">
-																<div style="display:inline-block;width:72px;height:72px;background:linear-gradient(135deg,#5f2299,#9c40e0);border-radius:20px;line-height:72px;font-size:36px;box-shadow:0 8px 24px rgba(95,34,153,0.4);">🔑</div>
+															<td class="pad">
+																<div class="alignment" align="center">
+																	<div class="fullWidth" style="max-width: 374px;"><a href="www.example.com" target="_blank"><img src="https://d1oco4z2z1fhwp.cloudfront.net/templates/default/11256/password_reset.png" style="display: block; height: auto; border: 0; width: 100%;" width="374" alt="Resetting Password" title="Resetting Password" height="auto"></a></div>
+																</div>
 															</td>
 														</tr>
 													</table>
@@ -299,9 +251,8 @@ export async function POST(req: Request) {
 													<table class="paragraph_block block-1" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; word-break: break-word;">
 														<tr>
 															<td class="pad" style="padding-bottom:10px;padding-left:20px;padding-right:10px;padding-top:10px;">
-																<div style="color:#454545;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.8;text-align:center;mso-line-height-alt:27px;">
-																	<p style="margin:0 0 8px;word-break:break-word;">Hey <strong style="color:#5f2299;">@${user.username}</strong> 👋</p>
-																	<p style="margin:0;word-break:break-word;color:#666;">We received a request to reset your AB Campaigns password. Click the button below — this link expires in <strong style="color:#101010;">1 hour</strong>.<br/>If you didn't request this, you can safely ignore this email.</p>
+																<div style="color:#454545;font-family:Arial, Helvetica Neue, Helvetica, sans-serif;font-size:14px;line-height:1.8;text-align:center;mso-line-height-alt:25px;">
+																	<p style="margin: 0; word-break: break-word;"><span style="word-break: break-word;">Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Aenean commodo ligula eget dolor. Aenean massa.</span></p>
 																</div>
 															</td>
 														</tr>
@@ -309,8 +260,13 @@ export async function POST(req: Request) {
 													<table class="button_block block-2" width="100%" border="0" cellpadding="10" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
 														<tr>
 															<td class="pad">
-																<div align="center"><a href="${resetUrl}" target="_blank" style="display:inline-block;background:linear-gradient(135deg,#5f2299,#9c40e0);color:#ffffff;text-decoration:none;font-size:16px;font-weight:700;padding:14px 40px;border-radius:10px;letter-spacing:0.3px;box-shadow:0 6px 20px rgba(95,34,153,0.35);font-family:Arial,sans-serif;">🔐 &nbsp; Reset My Password</a></div>
-																<p style="text-align:center;font-size:12px;color:#999;margin:12px 0 0;font-family:Arial,sans-serif;">If the button doesn't work, copy and paste this URL:<br/><a href="${resetUrl}" style="color:#5f2299;word-break:break-all;">${resetUrl}</a></p>
+																<div class="alignment" align="center"><a href="${resetUrl}" target="_blank" style="color:#ffffff;text-decoration:none;"><!--[if mso]>
+<v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word"  href="${resetUrl}"  style="height:42px;width:156px;v-text-anchor:middle;" arcsize="9%" fillcolor="#101">
+<v:stroke dashstyle="Solid" weight="1px" color="#101"/>
+<w:anchorlock/>
+<v:textbox inset="0px,0px,0px,0px">
+<center dir="false" style="color:#ffffff;font-family:sans-serif;font-size:16px">
+<![endif]--><span class="button" style="background-color: #101; mso-shading: transparent; border-bottom: 1px solid #101; border-left: 1px solid #101; border-radius: 4px; border-right: 1px solid #101; border-top: 1px solid #101; color: #ffffff; display: inline-block; font-family: Arial, Helvetica Neue, Helvetica, sans-serif; font-size: 16px; font-weight: undefined; mso-border-alt: none; padding-bottom: 5px; padding-top: 5px; padding-left: 20px; padding-right: 20px; text-align: center; width: auto; word-break: keep-all; letter-spacing: normal;"><span style="word-break: break-word; line-height: 32px;">Reset Password</span></span><!--[if mso]></center></v:textbox></v:roundrect><![endif]--></a></div>
 															</td>
 														</tr>
 													</table>
@@ -334,53 +290,6 @@ export async function POST(req: Request) {
 									<table class="row-content stack" align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; color: #000000; width: 680px; margin: 0 auto;" width="680">
 										<tbody>
 											<tr>
-												<td class="column column-1" width="100%" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; font-weight: 400; text-align: left; padding-bottom: 5px; padding-top: 5px; vertical-align: top;">
-													<div class="spacer_block block-1" style="height:20px;line-height:20px;font-size:1px;">&#8202;</div>
-													<table class="social_block block-2" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
-														<tr>
-															<td class="pad" style="padding-bottom:15px;padding-left:10px;padding-right:10px;padding-top:10px;text-align:center;">
-																<div class="alignment" align="center">
-																	<table class="social-table" width="140px" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; display: inline-block;">
-																		<tr>
-																			<td style="padding:0 2px 0 0;"><a href="facebook.com" target="_blank"><img src="https://app-rsrc.getbee.io/public/resources/social-networks-icon-sets/t-only-logo-dark-gray/facebook@2x.png" width="32" height="auto" alt="Facebook" title="facebook" style="display: block; height: auto; border: 0;"></a></td>
-																			<td style="padding:0 2px 0 2px;"><a href="twitter.com" target="_blank"><img src="https://app-rsrc.getbee.io/public/resources/social-networks-icon-sets/t-only-logo-dark-gray/twitter@2x.png" width="32" height="auto" alt="Twitter" title="twitter" style="display: block; height: auto; border: 0;"></a></td>
-																			<td style="padding:0 2px 0 2px;"><a href="linkedin.com" target="_blank"><img src="https://app-rsrc.getbee.io/public/resources/social-networks-icon-sets/t-only-logo-dark-gray/linkedin@2x.png" width="32" height="auto" alt="Linkedin" title="linkedin" style="display: block; height: auto; border: 0;"></a></td>
-																			<td style="padding:0 0 0 2px;"><a href="instagram.com" target="_blank"><img src="https://app-rsrc.getbee.io/public/resources/social-networks-icon-sets/t-only-logo-dark-gray/instagram@2x.png" width="32" height="auto" alt="Instagram" title="instagram" style="display: block; height: auto; border: 0;"></a></td>
-																		</tr>
-																	</table>
-																</div>
-															</td>
-														</tr>
-													</table>
-													<table class="menu_block block-3" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
-														<tr>
-															<td class="pad" style="color:#101010;font-family:inherit;font-size:14px;text-align:center;">
-																<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
-																	<tr>
-																		<td class="alignment" style="text-align:center;font-size:0px;"><!--[if !mso]><!--><input class="menu-checkbox" id="menu-r5c0m2" type="checkbox" style="display:none !important;max-height:0;visibility:hidden;"><!--<![endif]-->
-																			<div class="menu-trigger" style="display:none;max-height:0px;max-width:0px;font-size:0px;overflow:hidden;"><label class="menu-label" for="menu-r5c0m2" style="height: 36px; width: 36px; display: inline-block; cursor: pointer; mso-hide: all; user-select: none; align: center; text-align: center; color: #ffffff; text-decoration: none; background-color: #000000; border-radius: 0;"><span class="menu-open" style="word-break: break-word; mso-hide: all; font-size: 26px; line-height: 31.5px;">☰</span><span class="menu-close" style="word-break: break-word; display: none; mso-hide: all; font-size: 26px; line-height: 36px;">✕</span></label></div>
-																			<div class="menu-links"><!--[if mso]><table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style=""><tr style="text-align:center;"><![endif]--><!--[if mso]><td style="padding-top:5px;padding-right:15px;padding-bottom:5px;padding-left:15px"><![endif]--><a href="www.example.com" target="_self" style="mso-hide:false;padding-top:5px;padding-bottom:5px;padding-left:15px;padding-right:15px;display:inline-block;color:#101010;font-family:Arial, Helvetica Neue, Helvetica, sans-serif;font-size:14px;font-weight:undefined;text-decoration:none;letter-spacing:normal;">Unsubscribe</a><!--[if mso]></td><![endif]--><!--[if mso]><td style="padding-top:5px;padding-right:15px;padding-bottom:5px;padding-left:15px"><![endif]--><a href="www.example.com" target="_self" style="mso-hide:false;padding-top:5px;padding-bottom:5px;padding-left:15px;padding-right:15px;display:inline-block;color:#101010;font-family:Arial, Helvetica Neue, Helvetica, sans-serif;font-size:14px;font-weight:undefined;text-decoration:none;letter-spacing:normal;">Help</a><!--[if mso]></td><![endif]--><!--[if mso]><td style="padding-top:5px;padding-right:15px;padding-bottom:5px;padding-left:15px"><![endif]--><a href="www.example.com" target="_self" style="mso-hide:false;padding-top:5px;padding-bottom:5px;padding-left:15px;padding-right:15px;display:inline-block;color:#101010;font-family:Arial, Helvetica Neue, Helvetica, sans-serif;font-size:14px;font-weight:undefined;text-decoration:none;letter-spacing:normal;">Login</a><!--[if mso]></td><![endif]--><!--[if mso]><td style="padding-top:5px;padding-right:15px;padding-bottom:5px;padding-left:15px"><![endif]--><a href="www.example.com" target="_self" style="mso-hide:false;padding-top:5px;padding-bottom:5px;padding-left:15px;padding-right:15px;display:inline-block;color:#101010;font-family:Arial, Helvetica Neue, Helvetica, sans-serif;font-size:14px;font-weight:undefined;text-decoration:none;letter-spacing:normal;">Privacy</a><!--[if mso]></td><![endif]--><!--[if mso]></tr></table><![endif]--></div>
-																		</td>
-																	</tr>
-																</table>
-															</td>
-														</tr>
-													</table>
-												</td>
-											</tr>
-										</tbody>
-									</table>
-								</td>
-							</tr>
-						</tbody>
-					</table>
-					<table class="row row-7" align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
-						<tbody>
-							<tr>
-								<td>
-									<table class="row-content stack" align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; color: #000000; width: 680px; margin: 0 auto;" width="680">
-										<tbody>
-											<tr>
 												<td class="column column-1" width="16.666666666666668%" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; font-weight: 400; text-align: left; padding-bottom: 5px; padding-top: 5px; vertical-align: top;">
 													<div class="spacer_block block-1" style="height:0px;line-height:0px;font-size:1px;">&#8202;</div>
 												</td>
@@ -397,12 +306,34 @@ export async function POST(req: Request) {
 							</tr>
 						</tbody>
 					</table>
-					<!-- AB Campaigns footer -->
-					<table align="center" width="680" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace:0pt;mso-table-rspace:0pt;max-width:680px;margin:0 auto;">
-						<tbody><tr><td style="text-align:center;padding:20px 0 30px;font-family:Arial,sans-serif;font-size:12px;color:#999;line-height:1.6;">
-							<strong style="color:#5f2299;">AB Campaigns</strong> &mdash; AttireBulk Notification Manager<br/>
-							This is an automated security email. Please do not reply.
-						</td></tr></tbody>
+					<table class="row row-7" align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; background-color: #ffffff;">
+						<tbody>
+							<tr>
+								<td>
+									<table class="row-content stack" align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; color: #000000; background-color: #ffffff; width: 680px; margin: 0 auto;" width="680">
+										<tbody>
+											<tr>
+												<td class="column column-1" width="100%" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; font-weight: 400; text-align: left; padding-bottom: 5px; padding-top: 5px; vertical-align: top;">
+													<table class="icons_block block-1" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; text-align: center; line-height: 0;">
+														<tr>
+															<td class="pad" style="vertical-align: middle; color: #1e0e4b; font-family: 'Inter', sans-serif; font-size: 15px; padding-bottom: 5px; padding-top: 5px; text-align: center;"><!--[if vml]><table align="center" cellpadding="0" cellspacing="0" role="presentation" style="display:inline-block;padding-left:0px;padding-right:0px;mso-table-lspace: 0pt;mso-table-rspace: 0pt;" ><![endif]-->
+																<!--[if !vml]><!-->
+																<table class="icons-inner" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; display: inline-block; padding-left: 0px; padding-right: 0px;" cellpadding="0" cellspacing="0" role="presentation"><!--<![endif]-->
+																	<tr>
+																		<td style="vertical-align: middle; text-align: center; padding-top: 5px; padding-bottom: 5px; padding-left: 5px; padding-right: 6px;"><a href="https://designedwithbeefree.com/" target="_blank" title="Designed with Beefree" style="text-decoration: none;"><img class="icon" alt="Beefree Logo" src="https://d1oco4z2z1fhwp.cloudfront.net/assets/Beefree-logo.png" height="auto" width="34" align="center" style="display: block; height: auto; margin: 0 auto; border: 0;"></a></td>
+																		<td style="font-family: 'Inter', sans-serif; font-size: 15px; font-weight: undefined; color: #1e0e4b; vertical-align: middle; letter-spacing: normal; text-align: center; line-height: normal;"><a href="https://designedwithbeefree.com/" target="_blank" title="Designed with Beefree" style="color: #1e0e4b; text-decoration: none;">Designed with Beefree</a></td>
+																	</tr>
+																</table>
+															</td>
+														</tr>
+													</table>
+												</td>
+											</tr>
+										</tbody>
+									</table>
+								</td>
+							</tr>
+						</tbody>
 					</table>
 				</td>
 			</tr>
@@ -412,19 +343,21 @@ export async function POST(req: Request) {
 
 </html>`;
 
-    await transporter.sendMail({
-      from: process.env.EMAIL_FROM,
-      to: user.email,
-      subject: "Reset your AB Campaigns password",
-      html,
-    });
+		const { error: sendError } = await resend.emails.send({
+			from: process.env.EMAIL_FROM!,
+			to: user.email,
+			subject: "Reset your AB Campaigns password",
+			html,
+		});
 
-    return NextResponse.json({ success: true });
-  } catch (error: any) {
-    console.error("forgot-password error:", error);
-    return NextResponse.json(
-      { error: "Failed to send reset email.", details: error.message },
-      { status: 500 }
-    );
-  }
+		if (sendError) throw new Error(sendError.message);
+
+		return NextResponse.json({ success: true });
+	} catch (error: any) {
+		console.error("forgot-password error:", error);
+		return NextResponse.json(
+			{ error: "Failed to send reset email.", details: error.message },
+			{ status: 500 }
+		);
+	}
 }
