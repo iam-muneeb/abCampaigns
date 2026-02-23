@@ -171,7 +171,7 @@ export async function POST(req: Request) {
 														<tr>
 															<td class="pad" style="width:100%;padding-right:0px;padding-left:0px;">
 																<div class="alignment" align="center">
-																	<div style="max-width: 57px;"><a href="https://app.attirebulk.org/" target="_blank"><img src="https://i.postimg.cc/9QKHGn5Z/logo.webp" style="display: block; height: auto; border: 0; width: 100%;" width="57" alt="Company Logo" title="Company Logo" height="auto"></a></div>
+																	<div style="max-width: 57px;"><a href="https://app.attirebulk.org/" target="_blank"><img src="https://i.postimg.cc/Kvd268Qf/logo.png" style="display: block; height: auto; border: 0; width: 100%;" width="57" alt="Company Logo" title="Company Logo" height="auto"></a></div>
 																</div>
 															</td>
 														</tr>
@@ -252,7 +252,7 @@ export async function POST(req: Request) {
 														<tr>
 															<td class="pad" style="padding-bottom:10px;padding-left:20px;padding-right:10px;padding-top:10px;">
 																<div style="color:#454545;font-family:Arial, Helvetica Neue, Helvetica, sans-serif;font-size:14px;line-height:1.8;text-align:center;mso-line-height-alt:25px;">
-																	<p style="margin: 0; word-break: break-word;"><span style="word-break: break-word;">Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Aenean commodo ligula eget dolor. Aenean massa.</span></p>
+																	<p style="margin: 0; word-break: break-word;"><span style="word-break: break-word;">You requested to reset the password for your AB Campaigns account. Click the button below to set a new password.</span></p>
 																</div>
 															</td>
 														</tr>
@@ -320,8 +320,8 @@ export async function POST(req: Request) {
 																<!--[if !vml]><!-->
 																<table class="icons-inner" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; display: inline-block; padding-left: 0px; padding-right: 0px;" cellpadding="0" cellspacing="0" role="presentation"><!--<![endif]-->
 																	<tr>
-																		<td style="vertical-align: middle; text-align: center; padding-top: 5px; padding-bottom: 5px; padding-left: 5px; padding-right: 6px;"><a href="https://designedwithbeefree.com/" target="_blank" title="Designed with Beefree" style="text-decoration: none;"><img class="icon" alt="Beefree Logo" src="https://d1oco4z2z1fhwp.cloudfront.net/assets/Beefree-logo.png" height="auto" width="34" align="center" style="display: block; height: auto; margin: 0 auto; border: 0;"></a></td>
-																		<td style="font-family: 'Inter', sans-serif; font-size: 15px; font-weight: undefined; color: #1e0e4b; vertical-align: middle; letter-spacing: normal; text-align: center; line-height: normal;"><a href="https://designedwithbeefree.com/" target="_blank" title="Designed with Beefree" style="color: #1e0e4b; text-decoration: none;">Designed with Beefree</a></td>
+																		<td style="vertical-align: middle; text-align: center; padding-top: 5px; padding-bottom: 5px; padding-left: 5px; padding-right: 6px;"><a href="https://attirebulk.com/" target="_blank" title="Powered By AttireBulk" style="text-decoration: none;"><img class="icon" alt="Beefree Logo" src="https://d1oco4z2z1fhwp.cloudfront.net/assets/Beefree-logo.png" height="auto" width="34" align="center" style="display: block; height: auto; margin: 0 auto; border: 0;"></a></td>
+																		<td style="font-family: 'Inter', sans-serif; font-size: 15px; font-weight: undefined; color: #1e0e4b; vertical-align: middle; letter-spacing: normal; text-align: center; line-height: normal;"><a href="https://attirebulk.com/" target="_blank" title="Powered By AttireBulk" style="color: #1e0e4b; text-decoration: none;">Powered By AttireBulk</a></td>
 																	</tr>
 																</table>
 															</td>
