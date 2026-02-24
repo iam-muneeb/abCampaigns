@@ -5,12 +5,23 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { Users, Tag, ChevronRight, Crown, Smartphone, SlidersHorizontal } from "lucide-react";
 
+interface SettingsCard {
+  href: string;
+  icon: any;
+  title: string;
+  description: string;
+  accent: string;
+  iconBg: string;
+  iconColor: string;
+  badge?: string;
+}
+
 export default function SettingsPage() {
   const { data: session } = useSession();
   const isSuperAdmin = (session?.user as any)?.role === "super_admin";
 
   // Cards visible to everyone
-  const allUserCards = [
+  const allUserCards: SettingsCard[] = [
     {
       href: "/settings/filters",
       icon: SlidersHorizontal,
@@ -23,7 +34,7 @@ export default function SettingsPage() {
   ];
 
   // Cards only for super_admin
-  const superAdminCards = isSuperAdmin
+  const superAdminCards: SettingsCard[] = isSuperAdmin
     ? [
       {
         href: "/settings/app-versions",
@@ -50,7 +61,7 @@ export default function SettingsPage() {
 
   const secondRowCards = [...superAdminCards, ...allUserCards];
 
-  const CardLink = ({ card }: { card: (typeof secondRowCards)[0] }) => {
+  const CardLink = ({ card }: { card: SettingsCard }) => {
     const Icon = card.icon;
     return (
       <Link
@@ -64,7 +75,7 @@ export default function SettingsPage() {
               <Icon className={`w-6 h-6 ${card.iconColor}`} />
             </div>
             <div className="flex items-center gap-2">
-              {"badge" in card && card.badge && (
+              {card.badge && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-amber-400 to-orange-400 text-white text-[10px] font-black rounded-md">
                   <Crown className="w-2.5 h-2.5" /> {card.badge}
                 </span>
