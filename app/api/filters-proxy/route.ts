@@ -11,6 +11,8 @@ const ENDPOINTS: Record<string, string> = {
     weartypes: "https://attirebulk.com/api/weartypes.php",
     categories: "https://attirebulk.com/api/categories.php",
     styles: "https://attirebulk.com/api/styles.php",
+    itemtypes: "https://attirebulk.com/api/itemtypes.php",
+    countries: "https://attirebulk.com/api/countries.php",
 };
 
 export async function GET(req: Request) {

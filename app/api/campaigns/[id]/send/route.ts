@@ -22,15 +22,35 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         campaign.status = "Sending";
         await campaign.save();
 
-        // The user explicitly requested to skip topics/audiences for now
-        // and send to all devices. We'll send to a generic 'all' topic.
-        const topic = "all";
+        // Use the audience specified in the campaign
+        const topic = campaign.audience;
 
         const message = {
             notification: {
                 title: campaign.title,
                 body: campaign.body,
                 ...(campaign.image_url ? { imageUrl: campaign.image_url } : {})
+            },
+            data: {
+                campaignId: String(campaign._id.toString()),
+                type: String(campaign.type),
+                targetScreen: String(campaign.targetScreen),
+                click_action: "FLUTTER_NOTIFICATION_CLICK"
+            },
+            android: {
+                priority: "high" as const,
+                notification: {
+                    sound: "default",
+                    channelId: "high_importance_channel"
+                }
+            },
+            apns: {
+                payload: {
+                    aps: {
+                        sound: "default",
+                        contentAvailable: true,
+                    }
+                }
             },
             topic: topic,
         };

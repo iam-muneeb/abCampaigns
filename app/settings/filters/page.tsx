@@ -5,15 +5,17 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
     ArrowLeft, Users, Layers, Grid3x3, Sparkles,
-    CheckCircle2, Circle, RefreshCw,
+    CheckCircle2, Circle, RefreshCw, Package,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+interface ItemTypeEntry { title: string; image: string }
 interface TypeEntry { title: string; subtypes: Record<string, string>[] }
 interface WearType { type: string; subtype: string; itemtype: string; title: string; image: string }
 interface Category { type: string; subtype: string; itemtype: string; weartype: string; title: string; image: string }
 interface StyleEntry { type: string; subtype: string; itemtype: string; weartype: string; title: string; image: string }
 
+type ItemTypesMap = Record<string, ItemTypeEntry>
 type TypesMap = Record<string, TypeEntry>
 type WearTypesMap = Record<string, WearType>
 type CatsMap = Record<string, Category>
@@ -37,6 +39,14 @@ const TYPE_TEXT: Record<string, string> = {
     "24": "text-sky-600",
     "25": "text-slate-600",
 };
+
+// Item-type palette — stable per id
+const ITEM_PALETTES: { bar: string; bg: string; text: string; imgBg: string }[] = [
+    { bar: "bg-violet-500", bg: "bg-violet-50", text: "text-violet-700", imgBg: "bg-violet-100" },
+    { bar: "bg-amber-500", bg: "bg-amber-50", text: "text-amber-700", imgBg: "bg-amber-100" },
+    { bar: "bg-teal-500", bg: "bg-teal-50", text: "text-teal-700", imgBg: "bg-teal-100" },
+    { bar: "bg-sky-500", bg: "bg-sky-50", text: "text-sky-700", imgBg: "bg-sky-100" },
+];
 
 const IMAGE_BASE = "https://attirebulk.com/products/";
 
@@ -132,6 +142,7 @@ function TypeShimmer() {
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function FiltersPage() {
+    const [itemTypes, setItemTypes] = useState<ItemTypesMap>({});
     const [types, setTypes] = useState<TypesMap>({});
     const [wearTypes, setWearTypes] = useState<WearTypesMap>({});
     const [categories, setCategories] = useState<CatsMap>({});
@@ -140,20 +151,21 @@ export default function FiltersPage() {
     const [reloading, setReloading] = useState(false);
     const [reloadKey, setReloadKey] = useState(0);
 
-    const [mainTab, setMainTab] = useState<"types" | "weartypes" | "categories" | "styles">("types");
+    const [mainTab, setMainTab] = useState<"itemtypes" | "types" | "weartypes" | "categories" | "styles">("itemtypes");
     const [wtTab, setWtTab] = useState<"all" | "active">("all");
 
     useEffect(() => {
         async function load() {
             setLoading(true);
             const f = reloadKey > 0 ? "&force=true" : "";
-            const [t, w, c, s] = await Promise.all([
+            const [it, t, w, c, s] = await Promise.all([
+                fetch(`/api/filters-proxy?type=itemtypes${f}`).then(r => r.json()),
                 fetch(`/api/filters-proxy?type=types${f}`).then(r => r.json()),
                 fetch(`/api/filters-proxy?type=weartypes${f}`).then(r => r.json()),
                 fetch(`/api/filters-proxy?type=categories${f}`).then(r => r.json()),
                 fetch(`/api/filters-proxy?type=styles${f}`).then(r => r.json()),
             ]);
-            setTypes(t); setWearTypes(w); setCategories(c); setStyles(s);
+            setItemTypes(it); setTypes(t); setWearTypes(w); setCategories(c); setStyles(s);
             setLoading(false);
             setReloading(false);
         }
@@ -162,7 +174,7 @@ export default function FiltersPage() {
 
     function handleReload() {
         setReloading(true);
-        setTypes({}); setWearTypes({}); setCategories({}); setStyles({});
+        setItemTypes({}); setTypes({}); setWearTypes({}); setCategories({}); setStyles({});
         setReloadKey(k => k + 1);
     }
 
@@ -172,6 +184,7 @@ export default function FiltersPage() {
     ]);
 
     const mainTabs = [
+        { id: "itemtypes", label: "Item Types", icon: Package, count: Object.keys(itemTypes).length },
         { id: "types", label: "Types", icon: Users, count: Object.keys(types).length },
         { id: "weartypes", label: "Wear Types", icon: Layers, count: Object.keys(wearTypes).length },
         { id: "categories", label: "Categories", icon: Grid3x3, count: Object.keys(categories).length },
@@ -231,6 +244,43 @@ export default function FiltersPage() {
 
             {/* ── Scrollable card area ───────────────────────────────────── */}
             <div className="flex-1 overflow-y-auto px-8 py-6">
+
+                {/* ── ITEM TYPES ──────────────────────────────────────────── */}
+                {mainTab === "itemtypes" && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {loading
+                            ? Array.from({ length: 3 }).map((_, i) => <TypeShimmer key={i} />)
+                            : Object.entries(itemTypes).map(([id, it], idx) => {
+                                const pal = ITEM_PALETTES[idx % ITEM_PALETTES.length];
+                                const imgSrc = `https://attirebulk.com/products/${it.image}`;
+                                return (
+                                    <div key={id}
+                                        className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-150 overflow-hidden flex">
+                                        {/* Left accent bar */}
+                                        <div className={`w-1 shrink-0 ${pal.bar}`} />
+                                        <div className="flex-1 p-4">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <div className="flex items-center gap-2.5">
+                                                    {/* Image or icon fallback */}
+                                                    <div className={`w-10 h-10 rounded-lg ${pal.imgBg} flex items-center justify-center shrink-0 overflow-hidden`}>
+                                                        <CardImage src={imgSrc} alt={it.title} />
+                                                    </div>
+                                                    <div>
+                                                        <h3 className="text-base font-extrabold text-slate-800 leading-tight">{it.title}</h3>
+                                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${pal.bg} ${pal.text}`}>ID #{id}</span>
+                                                    </div>
+                                                </div>
+                                                <Package className={`w-5 h-5 ${pal.text} opacity-40`} />
+                                            </div>
+                                            <p className="text-xs text-slate-400 font-medium">
+                                                Item type · used across wear types, categories & styles
+                                            </p>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                    </div>
+                )}
 
                 {/* ── TYPES ───────────────────────────────────────────────── */}
                 {mainTab === "types" && (
