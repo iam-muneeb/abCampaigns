@@ -1,18 +1,34 @@
 // app/api/quick-push/route.ts
-// Sends FCM push notifications directly to a list of user FCM tokens — no campaign needed.
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/lib/auth";
 import { adminMessaging } from "@/app/lib/firebaseAdmin";
+import { connectToDatabase } from "@/app/lib/mongodb";
+import QuickPush from "@/app/models/QuickPush";
 
 export const dynamic = "force-dynamic";
 
+// GET /api/quick-push — list all quick pushes, newest first
+export async function GET() {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+        await connectToDatabase();
+        const records = await QuickPush.find({}).sort({ createdAt: -1 });
+        return NextResponse.json(records);
+    } catch (err: any) {
+        return NextResponse.json({ error: err.message }, { status: 500 });
+    }
+}
+
+// POST /api/quick-push — send to tokens and persist record
 export async function POST(req: Request) {
     try {
         const session = await getServerSession(authOptions);
         if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-        const { title, body, tokens } = await req.json();
+        const { title, body, tokens, recipientIds } = await req.json();
 
         if (!title?.trim()) return NextResponse.json({ error: "title is required." }, { status: 400 });
         if (!body?.trim()) return NextResponse.json({ error: "body is required." }, { status: 400 });
@@ -36,20 +52,36 @@ export async function POST(req: Request) {
                 notification: { sound: "default", channelId: "high_importance_channel" },
             },
             apns: {
-                payload: {
-                    aps: { sound: "default", contentAvailable: true },
-                },
+                payload: { aps: { sound: "default", contentAvailable: true } },
             },
             tokens: cleanTokens,
         };
 
-        const response = await adminMessaging.sendEachForMulticast(message);
+        const fbResponse = await adminMessaging.sendEachForMulticast(message);
+
+        // Persist to DB
+        const user = session.user as any;
+        await connectToDatabase();
+        const record = await QuickPush.create({
+            title: title.trim(),
+            body: body.trim(),
+            recipientIds: Array.isArray(recipientIds) ? recipientIds : [],
+            totalTokens: cleanTokens.length,
+            successCount: fbResponse.successCount,
+            failureCount: fbResponse.failureCount,
+            sentBy: {
+                id: user.id || "",
+                name: user.name || "Unknown",
+                role: user.role || "admin",
+            },
+        });
 
         return NextResponse.json({
             success: true,
-            successCount: response.successCount,
-            failureCount: response.failureCount,
+            successCount: fbResponse.successCount,
+            failureCount: fbResponse.failureCount,
             total: cleanTokens.length,
+            record,
         });
     } catch (err: any) {
         console.error("Quick Push error:", err);

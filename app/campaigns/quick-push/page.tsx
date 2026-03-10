@@ -269,7 +269,7 @@ export default function QuickPushPage() {
         const res = await fetch("/api/quick-push", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ title, body, tokens }),
+            body: JSON.stringify({ title, body, tokens, recipientIds: selectedArr.map(u => u.id) }),
         });
         const data = await res.json();
         if (!res.ok) { setSendError(data.error || "Failed to send."); setSending(false); return; }
