@@ -366,6 +366,7 @@ export default function CampaignsPage() {
   const [qpRecords, setQpRecords] = useState<QuickPushRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [filterStatus, setFilterStatus] = useState<"All" | "Sent" | "Scheduled" | "Failed">("All");
 
   // Detail panel
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
@@ -455,31 +456,44 @@ export default function CampaignsPage() {
               className="flex items-center gap-2 bg-white border border-amber-300 text-amber-600 px-4 py-2 rounded-xl font-bold text-sm transition-all shadow-sm hover:bg-amber-50 hover:shadow-md active:scale-95">
               <Flame className="w-4 h-4" /> Quick Push
             </Link>
-            <button onClick={() => setIsModalOpen(true)}
+            <Link href="/campaigns/add"
               className="group flex items-center gap-2 bg-linear-to-r from-[#5f2299] to-[#762ec2] text-white px-4 py-2 rounded-xl font-bold text-sm transition-all shadow-md shadow-[#5f2299]/20 hover:shadow-xl hover:-translate-y-0.5 active:scale-95 relative overflow-hidden">
               <div className="absolute inset-0 bg-white/15 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
               <Plus className="w-4 h-4 relative z-10 group-hover:rotate-90 transition-transform duration-300" />
               <span className="relative z-10">Create Campaign</span>
-            </button>
+            </Link>
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="px-4 sm:px-8 mb-3 sm:mb-4 flex items-center gap-1 shrink-0">
-          {([
-            { key: "campaigns" as Tab, label: "Campaigns", count: campaigns.length, color: "text-[#5f2299]", activeBg: "bg-[#5f2299]" },
-            { key: "quickpush" as Tab, label: "Quick Push", count: qpRecords.length, color: "text-amber-600", activeBg: "bg-amber-500" },
-          ]).map(t => (
-            <button key={t.key} onClick={() => setTab(t.key)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${tab === t.key
-                ? `${t.activeBg} text-white shadow-md`
-                : "text-slate-500 hover:bg-slate-100"}`}>
-              {t.label}
-              <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${tab === t.key ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"}`}>
-                {t.count}
-              </span>
-            </button>
-          ))}
+        {/* Tabs and Filters */}
+        <div className="px-4 sm:px-8 mb-3 sm:mb-4 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between shrink-0">
+          <div className="flex items-center gap-1">
+            {([
+              { key: "campaigns" as Tab, label: "Campaigns", count: campaigns.length, color: "text-[#5f2299]", activeBg: "bg-[#5f2299]" },
+              { key: "quickpush" as Tab, label: "Quick Push", count: qpRecords.length, color: "text-amber-600", activeBg: "bg-amber-500" },
+            ]).map(t => (
+              <button key={t.key} onClick={() => setTab(t.key)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${tab === t.key
+                  ? `${t.activeBg} text-white shadow-md`
+                  : "text-slate-500 hover:bg-slate-100"}`}>
+                {t.label}
+                <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${tab === t.key ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"}`}>
+                  {t.count}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {tab === "campaigns" && (
+            <div className="flex items-center gap-1.5 p-1 bg-slate-100/50 rounded-xl border border-slate-100">
+               {(["All", "Sent", "Scheduled", "Failed"] as const).map(f => (
+                 <button key={f} onClick={() => setFilterStatus(f)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${filterStatus === f ? 'bg-white shadow-sm text-slate-800 border border-slate-200' : 'text-slate-500 hover:text-slate-700 border border-transparent'}`}>
+                    {f}
+                 </button>
+               ))}
+            </div>
+          )}
         </div>
 
         {/* List */}
@@ -497,9 +511,27 @@ export default function CampaignsPage() {
               </div>
             ) : (
               <div className="space-y-2">
-                {campaigns.map(c => (
-                  <CampaignCard key={c._id} c={c} onClick={() => { setSelectedQP(null); setSelectedCampaign(c); }} />
-                ))}
+                {campaigns.filter(c => {
+                  if (filterStatus === "All") return true;
+                  if (filterStatus === "Sent") return c.status === "Sent" || c.status === "Completed";
+                  if (filterStatus === "Scheduled") return c.status === "Scheduled";
+                  if (filterStatus === "Failed") return c.status === "Failed";
+                  return true;
+                }).length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-sm text-slate-400 font-medium tracking-wide">No {filterStatus.toLowerCase()} campaigns found.</p>
+                  </div>
+                ) : (
+                  campaigns.filter(c => {
+                    if (filterStatus === "All") return true;
+                    if (filterStatus === "Sent") return c.status === "Sent" || c.status === "Completed";
+                    if (filterStatus === "Scheduled") return c.status === "Scheduled";
+                    if (filterStatus === "Failed") return c.status === "Failed";
+                    return true;
+                  }).map(c => (
+                    <CampaignCard key={c._id} c={c} onClick={() => { setSelectedQP(null); setSelectedCampaign(c); }} />
+                  ))
+                )}
               </div>
             )
           ) : (
@@ -538,78 +570,7 @@ export default function CampaignsPage() {
           className="fixed inset-0 bg-slate-900/30 z-30 sm:z-10" />
       )}
 
-      {/* ── Create Campaign Modal ─────────────────────────── */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-              <h2 className="text-xl font-extrabold text-slate-800">Create Push Campaign</h2>
-              <button onClick={() => setIsModalOpen(false)} className="p-2 text-slate-400 hover:bg-slate-200 hover:text-slate-700 rounded-full transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <form onSubmit={handleCreate} className="p-8">
-              {error && (
-                <div className="mb-6 bg-rose-50 text-rose-600 p-4 rounded-xl flex items-start gap-3 border border-rose-100">
-                  <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" /><p className="text-sm font-medium">{error}</p>
-                </div>
-              )}
-              <div className="grid grid-cols-2 gap-6 mb-6">
-                <div className="col-span-2">
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Notification Title</label>
-                  <input required maxLength={65} type="text" value={formData.title}
-                    onChange={e => setFormData({ ...formData, title: e.target.value })}
-                    placeholder="e.g. Flash Sale: 50% Off Everything!"
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#5f2299]/20 focus:border-[#5f2299] transition-all" />
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Notification Body</label>
-                  <textarea required maxLength={240} rows={3} value={formData.body}
-                    onChange={e => setFormData({ ...formData, body: e.target.value })}
-                    placeholder="Tap to shop our latest collection before it's gone."
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#5f2299]/20 focus:border-[#5f2299] transition-all resize-none" />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Campaign Type</label>
-                  <select value={formData.type} onChange={e => setFormData({ ...formData, type: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#5f2299]/20 focus:border-[#5f2299] transition-all">
-                    {CAMPAIGN_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Target Screen</label>
-                  <input required type="text" value={formData.targetScreen}
-                    onChange={e => setFormData({ ...formData, targetScreen: e.target.value })}
-                    placeholder="e.g. Home, Cart, Category/123"
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#5f2299]/20 focus:border-[#5f2299] transition-all" />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Image URL (Optional)</label>
-                  <input type="url" value={formData.image_url}
-                    onChange={e => setFormData({ ...formData, image_url: e.target.value })}
-                    placeholder="https://..."
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#5f2299]/20 focus:border-[#5f2299] transition-all" />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Audience Topic</label>
-                  <input required type="text" value={formData.audience}
-                    onChange={e => setFormData({ ...formData, audience: e.target.value })}
-                    placeholder="e.g. All, PremiumUsers"
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#5f2299]/20 focus:border-[#5f2299] transition-all" />
-                </div>
-              </div>
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
-                <button type="button" onClick={() => setIsModalOpen(false)}
-                  className="px-6 py-3 font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">Cancel</button>
-                <button type="submit" disabled={submitting}
-                  className="px-8 py-3 bg-[#5f2299] hover:bg-[#762ec2] text-white font-bold rounded-xl shadow-md disabled:opacity-50 transition-all">
-                  {submitting ? "Saving..." : "Save Draft"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* ── Removed Modal ─────────────────────────── */}
     </div>
   );
 }

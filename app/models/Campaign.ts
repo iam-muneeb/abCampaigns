@@ -1,19 +1,19 @@
 import mongoose from "mongoose";
 
 const CampaignSchema = new mongoose.Schema({
+  name: { type: String, required: true },
   title: { type: String, required: true },
   body: { type: String, required: true },
   image_url: { type: String }, // Optional image for the notification
   type: {
     type: String,
-    enum: ['App Update', 'Coupon Code', 'Deals', 'Events', 'New Articles', 'New Brand', 'Material', 'Category', 'New Features'],
     required: true
   },
   audience: { type: String, default: 'All' },
-  targetScreen: { type: String, required: true }, // The Flutter screen to open
+  filterParams: { type: mongoose.Schema.Types.Mixed }, // Store raw JSON filters to use in worker
+  targetScreen: { type: String }, // Optional since Flutter app handles it based on type
   status: {
     type: String,
-    enum: ['Draft', 'Scheduled', 'Sending', 'Sent', 'Completed', 'Failed'],
     default: 'Draft'
   },
   scheduledAt: { type: Date },

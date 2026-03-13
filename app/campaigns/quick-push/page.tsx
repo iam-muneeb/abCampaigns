@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
+import CustomSelect from "../../components/CustomSelect";
 import {
     ArrowLeft, Flame, Search, SlidersHorizontal, X, ChevronRight,
     ChevronLeft, Users, Package, Shirt, Tag, Palette, Layers,
@@ -104,18 +105,16 @@ function Sel({ label, icon: Icon, value, onChange, opts, placeholder = "Any" }: 
     opts: { value: string; label: string }[]; placeholder?: string;
 }) {
     return (
-        <div>
-            <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">
+        <div className="flex flex-col gap-1 w-full min-w-0">
+            <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-[#5f2299]">
                 <Icon className="w-2.5 h-2.5" />{label}
             </p>
-            <div className="relative">
-                <select value={value} onChange={e => onChange(e.target.value)}
-                    className="w-full appearance-none bg-white border border-slate-200 rounded-lg px-2.5 py-2 pr-6 text-xs text-slate-700 font-medium focus:border-[#5f2299] outline-none cursor-pointer hover:border-slate-300 transition-colors">
-                    <option value="">{placeholder}</option>
-                    {opts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
-                <ChevronRight className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-300 rotate-90 pointer-events-none" />
-            </div>
+            <CustomSelect
+                value={value}
+                onChange={onChange}
+                options={opts}
+                placeholder={placeholder}
+            />
         </div>
     );
 }
@@ -178,6 +177,14 @@ export default function QuickPushPage() {
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const filtersRef = useRef<HTMLDivElement>(null);
     const searchRef = useRef<HTMLInputElement>(null);
+    const step2Ref = useRef<HTMLDivElement>(null);
+
+    const goToStep = (s: number) => {
+        setStep(s as 1 | 2 | 3);
+        setTimeout(() => {
+            if (s === 2) step2Ref.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
+    };
 
     // Load lookups
     useEffect(() => {
@@ -428,165 +435,211 @@ export default function QuickPushPage() {
                 )}
             </div>
 
-            {/* ── Step 1: User Picker ───────────────────────────── */}
-            {step === 1 && (
-                <div className="flex-1 overflow-y-auto px-8 py-5">
-                    {/* Stats + batch actions */}
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                            {loading ? (
-                                <div className="flex items-center gap-2">
-                                    <div className="w-4 h-4 border-2 border-[#5f2299]/20 border-t-[#5f2299] rounded-full animate-spin" />
-                                    <span className="text-sm text-slate-400">Loading users…</span>
+            {/* ── Steps Section ───────────────────────────── */}
+            {step !== 3 && (
+                <div className="flex-1 overflow-y-auto px-6 py-8 scroll-smooth pb-32 bg-[#f4f6f8]">
+                    <div className="max-w-4xl mx-auto space-y-6">
+                        
+                        {/* STEP 1: USER PICKER */}
+                        <div className={`bg-white rounded-3xl p-6 sm:p-8 border shadow-sm transition-all duration-500 relative ${step >= 1 ? 'border-[#5f2299]/20 shadow-xl shadow-[#5f2299]/5' : 'border-slate-100 opacity-50'}`}>
+                            <h2 className="text-xl font-extrabold text-slate-800 border-b border-slate-100 pb-4 mb-6 flex items-center gap-3">
+                                <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm ${step >= 1 ? 'bg-[#5f2299] text-white' : 'bg-slate-200 text-slate-500'}`}>1</span>
+                                Select Target Users
+                            </h2>
+
+                            {/* Stats + batch actions */}
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-3">
+                                    {loading ? (
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-4 h-4 border-2 border-[#5f2299]/20 border-t-[#5f2299] rounded-full animate-spin" />
+                                            <span className="text-sm text-slate-400">Loading users…</span>
+                                        </div>
+                                    ) : (
+                                        <span className="text-sm text-slate-400 font-medium">
+                                            <span className="font-black text-slate-800 text-lg">{searched.length}</span> users
+                                            {selectedArr.length > 0 && <span className="ml-2 text-[#5f2299] font-bold">· {selectedArr.length} selected</span>}
+                                        </span>
+                                    )}
                                 </div>
-                            ) : (
-                                <span className="text-sm text-slate-400 font-medium">
-                                    <span className="font-black text-slate-800 text-lg">{searched.length}</span> users
-                                    {selectedArr.length > 0 && <span className="ml-2 text-[#5f2299] font-bold">· {selectedArr.length} selected</span>}
-                                </span>
-                            )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                            {paginated.length > 0 && (
-                                <>
-                                    <button onClick={selectAll} className="text-xs font-bold text-[#5f2299] hover:bg-[#5f2299]/5 px-2.5 py-1.5 rounded-lg transition-colors">
-                                        Select page
-                                    </button>
-                                    <button onClick={deselectAll} className="text-xs font-bold text-slate-400 hover:bg-slate-100 px-2.5 py-1.5 rounded-lg transition-colors">
-                                        Deselect page
-                                    </button>
-                                </>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Selected user ID chips */}
-                    {selectedArr.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 mb-4 bg-[#5f2299]/4 border border-[#5f2299]/10 rounded-xl p-3">
-                            <span className="text-[10px] font-black uppercase tracking-widest text-[#5f2299] self-center mr-1">Selected:</span>
-                            {selectedArr.map(u => (
-                                <span key={u.id}
-                                    className="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 bg-white text-[#5f2299] text-xs font-bold rounded-full border border-[#5f2299]/20 shadow-sm">
-                                    #{u.id}
-                                    <button onClick={() => toggleUser(u)}
-                                        className="w-4 h-4 rounded-full hover:bg-[#5f2299]/10 flex items-center justify-center">
-                                        <X className="w-2.5 h-2.5" />
-                                    </button>
-                                </span>
-                            ))}
-                            <button onClick={() => setSelected({})} className="text-[10px] text-slate-400 hover:text-rose-500 font-semibold ml-auto">Clear all</button>
-                        </div>
-                    )}
-
-                    {/* User list */}
-                    {loading ? (
-                        <div className="space-y-2">{Array.from({ length: 12 }).map((_, i) => <RowShimmer key={i} />)}</div>
-                    ) : paginated.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-24 text-center">
-                            <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
-                                <Users className="w-7 h-7 text-slate-300" />
-                            </div>
-                            <h3 className="text-base font-bold text-slate-500">No users found</h3>
-                            <p className="text-sm text-slate-400">Try adjusting your search or filters.</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-2">
-                            {paginated.map((u, i) => (
-                                <UserRow key={u.id} user={u} index={i} selected={!!selected[u.id]} onToggle={() => toggleUser(u)} />
-                            ))}
-                        </div>
-                    )}
-
-                    {/* Pagination */}
-                    {!loading && totalPages > 1 && (
-                        <div className="flex items-center gap-2 justify-center mt-6 pt-4 border-t border-slate-100">
-                            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                                className="flex items-center gap-1 px-3.5 py-2 rounded-xl text-sm font-bold border border-slate-200 bg-white text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed hover:border-slate-300 transition-all">
-                                <ChevronLeft className="w-4 h-4" /> Prev
-                            </button>
-                            <span className="text-sm text-slate-500 font-semibold min-w-[60px] text-center">{page} / {totalPages}</span>
-                            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
-                                className="flex items-center gap-1 px-3.5 py-2 rounded-xl text-sm font-bold border border-slate-200 bg-white text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed hover:border-slate-300 transition-all">
-                                Next <ChevronRight className="w-4 h-4" />
-                            </button>
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {/* ── Step 2: Composer ──────────────────────────────── */}
-            {step === 2 && (
-                <div className="flex-1 overflow-y-auto px-8 py-6" style={{ animation: "slideRight .25s ease both" }}>
-                    <div className="max-w-2xl mx-auto">
-                        {/* Recipients summary */}
-                        <div className="bg-[#5f2299]/5 border border-[#5f2299]/10 rounded-2xl px-5 py-4 mb-6 flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-xl bg-[#5f2299]/10 flex items-center justify-center shrink-0">
-                                <Users className="w-5 h-5 text-[#5f2299]" />
-                            </div>
-                            <div>
-                                <p className="text-base font-black text-[#5f2299]">{selectedArr.length} recipient{selectedArr.length !== 1 ? "s" : ""}</p>
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                    {selectedArr.slice(0, 8).map(u => (
-                                        <span key={u.id} className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#5f2299]/10 text-[#5f2299]">#{u.id}</span>
-                                    ))}
-                                    {selectedArr.length > 8 && (
-                                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#5f2299]/10 text-[#5f2299]">+{selectedArr.length - 8} more</span>
+                                <div className="flex items-center gap-2">
+                                    {paginated.length > 0 && (
+                                        <>
+                                            <button onClick={selectAll} className="text-xs font-bold text-[#5f2299] hover:bg-[#5f2299]/5 px-2.5 py-1.5 rounded-lg transition-colors">
+                                                Select page
+                                            </button>
+                                            <button onClick={deselectAll} className="text-xs font-bold text-slate-400 hover:bg-slate-100 px-2.5 py-1.5 rounded-lg transition-colors">
+                                                Deselect page
+                                            </button>
+                                        </>
                                     )}
                                 </div>
                             </div>
-                        </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {/* Form */}
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-black text-slate-700 mb-1.5">Notification Title</label>
-                                    <input
-                                        type="text" maxLength={65} value={title}
-                                        onChange={e => setTitle(e.target.value)}
-                                        placeholder="e.g. Flash Sale Alert!"
-                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:bg-white focus:border-[#5f2299]/40 focus:ring-1 focus:ring-[#5f2299]/10 outline-none transition-all"
-                                    />
-                                    <p className="text-[10px] text-slate-400 mt-1 text-right">{title.length}/65</p>
+                            {/* Selected user ID chips */}
+                            {selectedArr.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5 mb-4 bg-[#5f2299]/4 border border-[#5f2299]/10 rounded-xl p-3">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-[#5f2299] self-center mr-1">Selected:</span>
+                                    {selectedArr.map(u => (
+                                        <span key={u.id}
+                                            className="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 bg-white text-[#5f2299] text-xs font-bold rounded-full border border-[#5f2299]/20 shadow-sm">
+                                            #{u.id}
+                                            <button onClick={() => toggleUser(u)}
+                                                className="w-4 h-4 rounded-full hover:bg-[#5f2299]/10 flex items-center justify-center">
+                                                <X className="w-2.5 h-2.5" />
+                                            </button>
+                                        </span>
+                                    ))}
+                                    <button onClick={() => setSelected({})} className="text-[10px] text-slate-400 hover:text-rose-500 font-semibold ml-auto">Clear all</button>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-black text-slate-700 mb-1.5">Notification Body</label>
-                                    <textarea
-                                        rows={4} maxLength={240} value={body}
-                                        onChange={e => setBody(e.target.value)}
-                                        placeholder="Tap to see what's waiting for you…"
-                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium resize-none focus:bg-white focus:border-[#5f2299]/40 focus:ring-1 focus:ring-[#5f2299]/10 outline-none transition-all"
-                                    />
-                                    <p className="text-[10px] text-slate-400 mt-1 text-right">{body.length}/240</p>
-                                </div>
-                            </div>
+                            )}
 
-                            {/* Preview */}
-                            <div>
-                                <p className="text-sm font-black text-slate-700 mb-1.5">Preview</p>
-                                <div className="bg-slate-900 rounded-2xl p-4 shadow-xl">
-                                    <div className="text-[10px] text-white/30 font-semibold uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                        Live preview
+                            {/* User list */}
+                            {loading ? (
+                                <div className="space-y-2">{Array.from({ length: 12 }).map((_, i) => <RowShimmer key={i} />)}</div>
+                            ) : paginated.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-24 text-center">
+                                    <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
+                                        <Users className="w-7 h-7 text-slate-300" />
                                     </div>
-                                    <NotifPreview title={title} body={body} />
+                                    <h3 className="text-base font-bold text-slate-500">No users found</h3>
+                                    <p className="text-sm text-slate-400">Try adjusting your search or filters.</p>
                                 </div>
-                            </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    {paginated.map((u, i) => (
+                                        <UserRow key={u.id} user={u} index={i} selected={!!selected[u.id]} onToggle={() => toggleUser(u)} />
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Pagination */}
+                            {!loading && totalPages > 1 && (
+                                <div className="flex items-center gap-2 justify-center mt-6 pt-4 border-t border-slate-100">
+                                    <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                                        className="flex items-center gap-1 px-3.5 py-2 rounded-xl text-sm font-bold border border-slate-200 bg-white text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed hover:border-slate-300 transition-all">
+                                        <ChevronLeft className="w-4 h-4" /> Prev
+                                    </button>
+                                    <span className="text-sm text-slate-500 font-semibold min-w-[60px] text-center">{page} / {totalPages}</span>
+                                    <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
+                                        className="flex items-center gap-1 px-3.5 py-2 rounded-xl text-sm font-bold border border-slate-200 bg-white text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed hover:border-slate-300 transition-all">
+                                        Next <ChevronRight className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            )}
+
+                            {step === 1 && (
+                                <div className="mt-8 flex justify-end">
+                                    <button type="button" onClick={() => goToStep(2)} disabled={selectedArr.length === 0}
+                                        className="px-8 py-3 bg-slate-900 hover:bg-black text-white font-bold rounded-xl shadow-md transition-all flex items-center gap-2 text-sm disabled:opacity-50 hover:-translate-y-0.5">
+                                        Continue to Message <ChevronRight className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            )}
+                            {step > 1 && (
+                                <div className="absolute top-6 right-8 text-[#5f2299]">
+                                    <CheckCircle2 className="w-6 h-6" />
+                                </div>
+                            )}
                         </div>
 
-                        {sendError && (
-                            <div className="mt-4 flex items-center gap-2 text-sm text-rose-600 bg-rose-50 border border-rose-100 rounded-xl px-4 py-3">
-                                <AlertCircle className="w-4 h-4 shrink-0" /> {sendError}
+                        {/* STEP 2: COMPOSER */}
+                        <div ref={step2Ref} className={`bg-white rounded-3xl p-6 sm:p-8 border shadow-sm transition-all duration-500 relative ${step >= 2 ? 'border-[#5f2299]/20 shadow-xl shadow-[#5f2299]/5' : 'border-slate-100 opacity-60 pointer-events-none'}`}>
+                            <h2 className="text-xl font-extrabold text-slate-800 border-b border-slate-100 pb-4 mb-6 flex items-center justify-between">
+                                <span className="flex items-center gap-3">
+                                    <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm ${step >= 2 ? 'bg-[#5f2299] text-white' : 'bg-slate-200 text-slate-500'}`}>2</span>
+                                    Compose Message
+                                </span>
+                            </h2>
+
+                            {/* Recipients summary */}
+                            <div className="bg-[#5f2299]/5 border border-[#5f2299]/10 rounded-2xl px-5 py-4 mb-6 flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-xl bg-[#5f2299]/10 flex items-center justify-center shrink-0">
+                                    <Users className="w-5 h-5 text-[#5f2299]" />
+                                </div>
+                                <div>
+                                    <p className="text-base font-black text-[#5f2299]">{selectedArr.length} recipient{selectedArr.length !== 1 ? "s" : ""}</p>
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                        {selectedArr.slice(0, 8).map(u => (
+                                            <span key={u.id} className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#5f2299]/10 text-[#5f2299]">#{u.id}</span>
+                                        ))}
+                                        {selectedArr.length > 8 && (
+                                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#5f2299]/10 text-[#5f2299]">+{selectedArr.length - 8} more</span>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
-                        )}
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* Form */}
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-black text-slate-700 mb-1.5">Notification Title</label>
+                                        <input
+                                            type="text" maxLength={65} value={title}
+                                            onChange={e => setTitle(e.target.value)}
+                                            placeholder="e.g. Flash Sale Alert!"
+                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:bg-white focus:border-[#5f2299]/40 focus:ring-1 focus:ring-[#5f2299]/10 outline-none transition-all"
+                                        />
+                                        <p className="text-[10px] text-slate-400 mt-1 text-right">{title.length}/65</p>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-black text-slate-700 mb-1.5">Notification Body</label>
+                                        <textarea
+                                            rows={4} maxLength={240} value={body}
+                                            onChange={e => setBody(e.target.value)}
+                                            placeholder="Tap to see what's waiting for you…"
+                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium resize-none focus:bg-white focus:border-[#5f2299]/40 focus:ring-1 focus:ring-[#5f2299]/10 outline-none transition-all"
+                                        />
+                                        <p className="text-[10px] text-slate-400 mt-1 text-right">{body.length}/240</p>
+                                    </div>
+                                </div>
+
+                                {/* Preview */}
+                                <div>
+                                    <p className="text-sm font-black text-slate-700 mb-1.5">Preview</p>
+                                    <div className="bg-slate-900 rounded-2xl p-4 shadow-xl">
+                                        <div className="text-[10px] text-white/30 font-semibold uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                            Live preview
+                                        </div>
+                                        <NotifPreview title={title} body={body} />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {sendError && (
+                                <div className="mt-4 flex items-center gap-2 text-sm text-rose-600 bg-rose-50 border border-rose-100 rounded-xl px-4 py-3">
+                                    <AlertCircle className="w-4 h-4 shrink-0" /> {sendError}
+                                </div>
+                            )}
+
+                            {step === 2 && (
+                                <div className="mt-8 flex justify-between items-center bg-slate-50 border border-slate-100 p-2 pl-4 rounded-xl">
+                                    <button type="button" onClick={() => goToStep(1)}
+                                        className="font-bold text-slate-500 hover:text-slate-800 transition-colors text-sm">
+                                        Edit Users
+                                    </button>
+                                    <button
+                                        onClick={handleSend}
+                                        disabled={sending || !title.trim() || !body.trim()}
+                                        className="flex items-center gap-2 px-8 py-3 rounded-xl font-extrabold text-sm text-white bg-gradient-to-r from-[#5f2299] to-amber-500 shadow-xl shadow-[#5f2299]/30 active:scale-[0.97] transition-all disabled:opacity-40 hover:-translate-y-0.5"
+                                    >
+                                        {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Flame className="w-4 h-4" />}
+                                        {sending ? "Sending…" : `Send to ${selectedArr.length} user${selectedArr.length !== 1 ? "s" : ""}`}
+                                        <Send className="w-3.5 h-3.5 opacity-70" />
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}
 
             {/* ── Step 3: Result ────────────────────────────────── */}
             {step === 3 && result && (
-                <div className="flex-1 flex items-center justify-center px-8 py-12" style={{ animation: "fadeUp .4s ease both" }}>
-                    <div className="text-center max-w-md">
+                <div className="flex-1 flex flex-col pt-24 bg-[#f4f6f8] px-8 py-12" style={{ animation: "fadeUp .4s ease both" }}>
+                    <div className="text-center max-w-md mx-auto">
                         <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-5 shadow-xl ${result.failureCount === 0 ? "bg-emerald-500 shadow-emerald-200" : "bg-amber-500 shadow-amber-200"}`}>
                             {result.failureCount === 0
                                 ? <CheckCircle2 className="w-10 h-10 text-white" />
@@ -611,7 +664,7 @@ export default function QuickPushPage() {
 
                         <div className="flex gap-3 justify-center">
                             <button onClick={() => { setStep(1); setSelected({}); setTitle(""); setBody(""); setResult(null); }}
-                                className="px-6 py-3 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors">
+                                className="px-6 py-3 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors shadow-sm">
                                 New Push
                             </button>
                             <Link href="/campaigns"
@@ -620,45 +673,6 @@ export default function QuickPushPage() {
                             </Link>
                         </div>
                     </div>
-                </div>
-            )}
-
-            {/* ── Bottom action bar ─────────────────────────────── */}
-            {step !== 3 && (
-                <div className="border-t border-slate-100 bg-white/95 backdrop-blur-sm px-8 py-4 flex items-center justify-between">
-                    {step === 2 ? (
-                        <button onClick={() => setStep(1)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors">
-                            <ChevronLeft className="w-4 h-4" /> Back
-                        </button>
-                    ) : (
-                        <div />
-                    )}
-
-                    {step === 1 && (
-                        <button
-                            onClick={() => { if (selectedArr.length > 0) setStep(2); }}
-                            disabled={selectedArr.length === 0}
-                            className="flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm text-white bg-[#5f2299] hover:bg-[#762ec2] shadow-md shadow-[#5f2299]/20 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-                        >
-                            Next: Compose
-                            <ArrowRight className="w-4 h-4" />
-                            {selectedArr.length > 0 && (
-                                <span className="bg-white/20 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full">{selectedArr.length}</span>
-                            )}
-                        </button>
-                    )}
-
-                    {step === 2 && (
-                        <button
-                            onClick={handleSend}
-                            disabled={sending || !title.trim() || !body.trim()}
-                            className="flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-[#5f2299] to-amber-500 shadow-md active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed transition-all hover:shadow-xl hover:-translate-y-0.5"
-                        >
-                            {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Flame className="w-4 h-4" />}
-                            {sending ? "Sending…" : `Send to ${selectedArr.length} user${selectedArr.length !== 1 ? "s" : ""}`}
-                            <Send className="w-3.5 h-3.5 opacity-70" />
-                        </button>
-                    )}
                 </div>
             )}
         </div>
