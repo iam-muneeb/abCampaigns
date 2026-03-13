@@ -1,42 +1,38 @@
-import { Worker, Job } from 'bullmq';
-import mongoose from 'mongoose';
-import { adminMessaging } from './app/lib/firebaseAdmin';
-import Campaign from './app/models/Campaign';
-import dotenv from 'dotenv';
-import path from 'path';
+import { NextResponse } from "next/server";
+import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
+import { connectToDatabase } from "@/app/lib/mongodb";
+import Campaign from "@/app/models/Campaign";
+import { adminMessaging } from "@/app/lib/firebaseAdmin";
 
-// Load from .env or .env.local
-dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
+export const dynamic = "force-dynamic";
+export const maxDuration = 60; // Allow execution up to 60s for FCM batches
 
-const connectDB = async () => {
-    if (mongoose.connection.readyState >= 1) return;
-    await mongoose.connect(process.env.MONGODB_URI as string);
-};
+async function handler(req: Request) {
+    try {
+        await connectToDatabase();
+        const body = await req.json();
+        const { campaignId } = body;
 
-const worker = new Worker('campaignsQueue', async (job: Job) => {
-    if (job.name === 'send-campaign') {
-        await connectDB();
-        const { campaignId } = job.data;
+        if (!campaignId) {
+            return NextResponse.json({ error: "No campaignId provided" }, { status: 400 });
+        }
+
         const campaign = await Campaign.findById(campaignId);
-        
         if (!campaign) {
             console.log(`Campaign ${campaignId} not found.`);
-            return;
+            return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
         }
 
         if (campaign.status !== 'Scheduled') {
             console.log(`Campaign ${campaignId} is not Scheduled (status: ${campaign.status}). Skipping.`);
-            return;
+            return NextResponse.json({ message: "Skipped" });
         }
 
         console.log(`Processing Campaign ${campaignId}: ${campaign.title}`);
-        
         campaign.status = 'Sending';
         await campaign.save();
 
         let tokens: string[] = [];
-
-        // Fetch users using the proxy logic directly
         const BASE_URL = "https://attirebulk.com/api/users.php";
         const params = new URLSearchParams();
         
@@ -47,7 +43,6 @@ const worker = new Worker('campaignsQueue', async (job: Job) => {
             if (val) params.set(key, val);
         }
 
-        // If audience is simply "All" or empty filters, we can just request all
         const url = params.toString() ? `${BASE_URL}?${params.toString()}` : BASE_URL;
 
         try {
@@ -64,7 +59,7 @@ const worker = new Worker('campaignsQueue', async (job: Job) => {
             console.error("Failed to fetch audience tokens:", err.message);
             campaign.status = 'Failed';
             await campaign.save();
-            return;
+            return NextResponse.json({ error: "Failed to fetch audience" }, { status: 500 });
         }
 
         if (tokens.length === 0) {
@@ -72,7 +67,7 @@ const worker = new Worker('campaignsQueue', async (job: Job) => {
             campaign.status = 'Completed';
             campaign.metrics = { delivered: 0, opened: 0, clicks: 0 };
             await campaign.save();
-            return;
+            return NextResponse.json({ message: "No tokens found. Completed." });
         }
 
         console.log(`Found ${tokens.length} target tokens. Sending...`);
@@ -132,18 +127,13 @@ const worker = new Worker('campaignsQueue', async (job: Job) => {
         campaign.status = 'Sent';
         campaign.metrics = { ...campaign.metrics, delivered: successCount };
         await campaign.save();
-    }
-}, {
-    connection: {
-        host: process.env.REDIS_HOST || '127.0.0.1',
-        port: parseInt(process.env.REDIS_PORT || '6379', 10),
-    }
-});
 
-worker.on('ready', () => {
-    console.log('Push Notification Worker is ready and listening for jobs!');
-});
+        return NextResponse.json({ success: true, delivered: successCount, failed: failureCount });
+    } catch (error: any) {
+        console.error("QStash Receiver Error:", error);
+        return NextResponse.json({ error: "Server Error", details: error.message }, { status: 500 });
+    }
+}
 
-worker.on('failed', (job, err) => {
-    console.error(`Job ${job?.id} failed:`, err);
-});
+// Wrapping handler with Upstash Signature Verification
+export const POST = verifySignatureAppRouter(handler);

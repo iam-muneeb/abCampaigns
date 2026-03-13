@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/app/lib/mongodb";
 import Campaign from "@/app/models/Campaign";
-import { campaignsQueue } from "@/app/lib/queue";
+import { Client } from "@upstash/qstash";
+
+const qstashClient = new Client({
+    token: process.env.QSTASH_TOKEN || "",
+});
 
 export const dynamic = "force-dynamic";
 
@@ -42,30 +46,33 @@ export async function POST(req: Request) {
         });
 
         try {
-            // Function to add to queue with a timeout to prevent hanging if Redis is down
-            const addJobWithTimeout = (jobName: string, data: any, opts: any) => {
-                return Promise.race([
-                    campaignsQueue.add(jobName, data, opts),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error('Redis connection timeout')), 2000))
-                ]);
-            };
-
+            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+            
             if (status === 'Scheduled' && scheduledAt) {
-                const delay = Math.max(0, new Date(scheduledAt).getTime() - Date.now());
-                await addJobWithTimeout('send-campaign', { campaignId: campaign._id.toString() }, { delay });
+                const scheduledDate = new Date(scheduledAt);
+                // Calculate delay in seconds for QStash
+                const delayStr = Math.max(0, Math.floor((scheduledDate.getTime() - Date.now()) / 1000));
+                
+                await qstashClient.publishJSON({
+                    url: `${baseUrl}/api/send-campaign`,
+                    body: { campaignId: campaign._id.toString() },
+                    notBefore: delayStr > 0 ? delayStr : undefined,
+                });
             } else if (status === 'Scheduled' || !scheduledAt) {
-                // If they clicked "Send Now", let's update status and run it immediately
-                campaign.status = 'Scheduled'; // Keep worker schema happy
+                campaign.status = 'Scheduled';
                 await campaign.save();
-                await addJobWithTimeout('send-campaign', { campaignId: campaign._id.toString() }, { delay: 0 });
+                
+                await qstashClient.publishJSON({
+                    url: `${baseUrl}/api/send-campaign`,
+                    body: { campaignId: campaign._id.toString() },
+                });
             }
         } catch (queueError: any) {
-            console.error("Queue error:", queueError);
-            // Revert status to Failed if we couldn't queue it
+            console.error("QStash error:", queueError);
             campaign.status = 'Failed';
             await campaign.save();
             return NextResponse.json({ 
-                warning: "Campaign saved, but scheduling failed. Is Redis running?", 
+                warning: "Campaign saved, but scheduling failed. Check QStash configuration.", 
                 details: queueError.message 
             }, { status: 201 });
         }
