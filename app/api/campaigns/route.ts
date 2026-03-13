@@ -40,8 +40,15 @@ export async function POST(req: Request) {
             status: status || 'Draft'
         });
 
+        let baseUrl = process.env.NEXT_PUBLIC_APP_URL || "";
         try {
-            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+            if (!baseUrl) {
+                const requestHost = req.headers.get("host") || "localhost:3000";
+                const protocol = process.env.NODE_ENV === "development" ? "http" : "https";
+                baseUrl = `${protocol}://${requestHost}`;
+            }
+            if (baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1);
+            
             
             // Re-instantiate inside POST ensuring the environment is loaded
             const qstashClient = new Client({
@@ -72,8 +79,8 @@ export async function POST(req: Request) {
             campaign.status = 'Failed';
             await campaign.save();
             return NextResponse.json({ 
-                warning: "Campaign saved, but scheduling failed. Check QStash configuration.", 
-                details: queueError.message 
+                warning: `Campaign saved, but scheduling failed. QStash rejected the webhook URL (${baseUrl}/api/send-campaign) or Token.`, 
+                details: queueError.message || String(queueError)
             }, { status: 201 });
         }
 
