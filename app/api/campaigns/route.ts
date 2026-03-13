@@ -2,11 +2,6 @@ import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/app/lib/mongodb";
 import Campaign from "@/app/models/Campaign";
 import { Client } from "@upstash/qstash";
-
-const qstashClient = new Client({
-    token: process.env.QSTASH_TOKEN || "",
-});
-
 export const dynamic = "force-dynamic";
 
 export async function GET() {
@@ -47,6 +42,11 @@ export async function POST(req: Request) {
 
         try {
             const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+            
+            // Re-instantiate inside POST ensuring the environment is loaded
+            const qstashClient = new Client({
+                token: process.env.QSTASH_TOKEN || "",
+            });
             
             if (status === 'Scheduled' && scheduledAt) {
                 const scheduledDate = new Date(scheduledAt);
